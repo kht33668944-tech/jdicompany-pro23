@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
         channelId: channelId || undefined,
         roomId: roomId || undefined,
         content: content || "(첨부만)",
-        attachments: attachments.length ? (attachments as unknown as object) : null,
+        attachments: attachments.length ? (attachments as unknown as object) : undefined,
       },
       include: {
         user: { select: { id: true, name: true, avatarUrl: true } },

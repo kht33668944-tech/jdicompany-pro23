@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const userIds = Array.isArray(body.userIds) ? (body.userIds as string[]) : [];
 
     if (!name) return errors.badRequest("방 이름을 입력해주세요.");
-    const memberIds = [...new Set([session.sub, ...userIds])];
+    const memberIds = Array.from(new Set([session.sub, ...userIds]));
     if (memberIds.length < 2) return errors.badRequest("그룹 채팅은 2명 이상이어야 합니다.");
 
     const room = await prisma.feedRoom.create({
