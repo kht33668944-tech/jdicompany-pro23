@@ -213,6 +213,9 @@ export default function DashboardNav({ user }: { user: User }) {
               </div>
               <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
             </button>
+            <p className="px-3 pt-1 text-[10px] text-slate-500" aria-hidden>
+              v{process.env.NEXT_PUBLIC_APP_VERSION ?? "0.1.2"}
+            </p>
             {userDropdownOpen && (
               <>
                 <div
