@@ -33,6 +33,7 @@ export default async function DashboardLayout({
           role: user.role,
           teamId: user.teamId ?? null,
           teamName: user.team?.name ?? null,
+          avatarUrl: user.avatarUrl ?? null,
         }}
       />
       {/* 메인: 데스크톱에서 사이드바 오른쪽, 모바일에서 상단바 아래 */}

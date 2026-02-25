@@ -52,7 +52,7 @@ export default function TeamScheduleCard({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <h2 className="font-semibold text-slate-800 p-4 border-b border-slate-100">팀 스케줄</h2>
+      <h2 className="font-semibold text-slate-800 p-4 border-b border-slate-100">이번 주 일정</h2>
       <div className="p-4 space-y-4">
         <div>
           <h3 className="text-sm font-medium text-slate-600 mb-2">이번 주 마감 업무 (상위 {topTasks}건)</h3>

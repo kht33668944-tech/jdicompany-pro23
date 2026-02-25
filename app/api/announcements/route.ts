@@ -5,14 +5,16 @@ import { success, created, errors } from "@/lib/api-response";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await requireSession();
-    if (!isCEO(session.role)) return errors.forbidden();
+    await requireSession();
+    // 조회: 로그인(승인) 사용자 전원 허용. 작성/수정/삭제는 CEO만.
 
     const { searchParams } = new URL(req.url);
     const start = searchParams.get("start");
     const end = searchParams.get("end");
     const type = searchParams.get("type");
     const teamId = searchParams.get("teamId");
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10)), 100) : undefined;
 
     const where: { type?: string; targetTeamId?: string; eventDate?: { gte?: Date; lte?: Date } } = {};
     if (type) where.type = type;
@@ -24,6 +26,7 @@ export async function GET(req: NextRequest) {
     const list = await prisma.announcement.findMany({
       where: Object.keys(where).length ? where : undefined,
       orderBy: { createdAt: "desc" },
+      take: limit,
       include: { creator: { select: { id: true, name: true } } },
     });
 

@@ -10,7 +10,7 @@ import {
   CheckCircle,
   Activity,
   Calendar,
-  Megaphone,
+  MessageCircle,
   User,
   Building2,
   Clock,
@@ -27,6 +27,7 @@ type User = {
   role: string;
   teamId: string | null;
   teamName: string | null;
+  avatarUrl?: string | null;
 };
 
 type NavLinkProps = {
@@ -143,13 +144,6 @@ export default function DashboardNav({ user }: { user: User }) {
             active={pathname.startsWith("/calendar")}
           />
           <NavLink
-            href="/announcements"
-            label="공지"
-            icon={<Megaphone className="w-5 h-5" />}
-            onClick={onNavigate}
-            active={pathname.startsWith("/announcements")}
-          />
-          <NavLink
             href="/me"
             label="내 업무"
             icon={<User className="w-5 h-5" />}
@@ -166,12 +160,19 @@ export default function DashboardNav({ user }: { user: User }) {
           {isCEO && (
             <NavLink
               href="/attendance"
-              label="출퇴근 현황"
+              label="출퇴근"
               icon={<Clock className="w-5 h-5" />}
               onClick={onNavigate}
               active={pathname.startsWith("/attendance")}
             />
           )}
+          <NavLink
+            href="/feed"
+            label="소통방"
+            icon={<MessageCircle className="w-5 h-5" />}
+            onClick={onNavigate}
+            active={pathname.startsWith("/feed")}
+          />
           <NavLink
             href="/settings"
             label="설정"
@@ -187,9 +188,17 @@ export default function DashboardNav({ user }: { user: User }) {
               onClick={() => setUserDropdownOpen((o) => !o)}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/5 text-left"
             >
-              <span className="w-8 h-8 rounded-full bg-slate-500 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium">
-                {user.name.charAt(0)}
-              </span>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/20"
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-slate-500 flex-shrink-0 flex items-center justify-center text-white text-sm font-medium">
+                  {user.name.charAt(0)}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-white truncate block">
                   {user.name}

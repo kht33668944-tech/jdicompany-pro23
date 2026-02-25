@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import ProgressGauge from "./ProgressGauge";
 import { STATUS_COLORS, STATUS_LABELS } from "./ProgressGauge";
 import TaskDetailModal from "./TaskDetailModal";
 import CreateTaskModal from "./CreateTaskModal";
@@ -76,20 +75,12 @@ export default function TeamKanban({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="font-semibold text-slate-800 mb-2">{teamName} 진행률</h2>
-        <ProgressGauge
-          todoCount={todoCount}
-          inProgressCount={inProgressCount}
-          doneCount={doneCount}
-          progressPercent={progressPercent}
-          height="lg"
-          showLegend={true}
-        />
-      </div>
-
       <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm font-medium text-slate-600">프로젝트</span>
+        <span className="text-xs text-slate-500">
+          준비중 {todoCount} · 진행중 {inProgressCount} · 완료 {doneCount}
+          {total > 0 && ` (${progressPercent}%)`}
+        </span>
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}

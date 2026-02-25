@@ -20,6 +20,11 @@ export default function TeamPageContent({
 
   return (
     <div className="space-y-8">
+      {/* 이번 주 일정 블록 (같은 페이지 내 상단) */}
+      <section>
+        <TeamScheduleCard teamId={teamId} topTasks={5} />
+      </section>
+
       <section>
         <ProjectCards
           teamId={teamId}
@@ -27,10 +32,6 @@ export default function TeamPageContent({
           onCreateClick={() => setCreateProjectOpen(true)}
           refreshKey={projectRefreshKey}
         />
-      </section>
-
-      <section className="grid md:grid-cols-2 gap-6">
-        <TeamScheduleCard teamId={teamId} topTasks={5} />
       </section>
 
       <section>

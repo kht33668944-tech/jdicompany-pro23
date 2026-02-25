@@ -90,17 +90,9 @@ export default function ProjectCards({
                 {p.endDate && format(new Date(p.endDate), "yyyy.MM.dd", { locale: ko })}
               </p>
             )}
-            <div className="mt-3">
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${p.progressPercent}%` }}
-                />
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                진행률 {p.progressPercent}% · 업무 {p.doneCount}/{p.taskCount}건
-              </p>
-            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              업무 {p.doneCount}/{p.taskCount}건
+            </p>
           </Link>
         ))}
       </div>

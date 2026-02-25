@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Inbox, PlayCircle, CheckCircle, AlertCircle, TrendingUp } from "lucide-react";
+import { Inbox, PlayCircle, CheckCircle, AlertCircle, TrendingUp, Megaphone } from "lucide-react";
 import ProgressGauge from "./ProgressGauge";
 import TeamBoard from "./TeamBoard";
 import ActivityFeed from "./ActivityFeed";
@@ -47,6 +47,14 @@ type ActivityItem = {
   createdAt: string;
 };
 
+type RecentAnnouncement = {
+  id: string;
+  type: string;
+  title: string;
+  eventDate: string | null;
+  createdAt: string;
+};
+
 type DashboardData = {
   summary: Summary;
   overdueTasks: OverdueTask[];
@@ -56,16 +64,30 @@ type DashboardData = {
 
 export default function CompanyDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [recentAnnouncements, setRecentAnnouncements] = useState<RecentAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [listModalStatus, setListModalStatus] = useState<string | null>(null);
 
   const fetchData = () => {
-    fetch("/api/dashboard/summary", { credentials: "include" })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setData(json.data);
-        else setError(json.error?.message || "로드 실패");
+    Promise.all([
+      fetch("/api/dashboard/summary", { credentials: "include" }).then((res) => res.json()),
+      fetch("/api/announcements?limit=5", { credentials: "include" }).then((res) => res.json()),
+    ])
+      .then(([summaryJson, announcementsJson]) => {
+        if (summaryJson.success) setData(summaryJson.data);
+        else setError(summaryJson.error?.message || "로드 실패");
+        if (announcementsJson.success && Array.isArray(announcementsJson.data)) {
+          setRecentAnnouncements(
+            announcementsJson.data.map((a: { id: string; type: string; title: string; eventDate: Date | null; createdAt: Date }) => ({
+              id: a.id,
+              type: a.type,
+              title: a.title,
+              eventDate: a.eventDate ? new Date(a.eventDate).toISOString() : null,
+              createdAt: new Date(a.createdAt).toISOString(),
+            }))
+          );
+        }
       })
       .catch(() => setError("네트워크 오류"))
       .finally(() => setLoading(false));
@@ -120,6 +142,41 @@ export default function CompanyDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* 최근 공지 (최상단) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-slate-500" />
+            최근 공지
+          </h2>
+          <Link
+            href="/announcements"
+            className="text-sm text-blue-600 hover:underline font-medium"
+          >
+            더보기 →
+          </Link>
+        </div>
+        {recentAnnouncements.length > 0 ? (
+          <ul className="divide-y divide-slate-100">
+            {recentAnnouncements.map((a) => (
+              <li key={a.id}>
+                <Link
+                  href={`/announcements?highlight=${a.id}`}
+                  className="block px-4 py-3 hover:bg-slate-50 transition-colors"
+                >
+                  <span className="text-xs text-slate-500 mr-2">
+                    {format(new Date(a.createdAt), "M/d", { locale: ko })}
+                  </span>
+                  <span className="text-slate-700 font-medium">{a.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-4 py-6 text-slate-500 text-sm">등록된 공지가 없습니다.</p>
+        )}
+      </div>
+
       {/* 한 줄 요약 + 빠른 액션 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <p className="text-slate-600 text-sm">

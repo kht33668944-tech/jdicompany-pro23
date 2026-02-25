@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import SettingsForm from "@/components/SettingsForm";
+import ProfileEditForm from "@/components/ProfileEditForm";
 import TeamUserManagement from "@/components/TeamUserManagement";
 
 export default async function SettingsPage() {
@@ -30,6 +31,14 @@ export default async function SettingsPage() {
             <dt className="text-slate-500">팀</dt>
             <dd className="text-slate-800">{user.team?.name ?? "-"}</dd>
           </dl>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="font-medium text-slate-800 mb-4">프로필 편집</h2>
+          <ProfileEditForm
+            initialName={user.name}
+            initialAvatarUrl={user.avatarUrl ?? null}
+          />
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">

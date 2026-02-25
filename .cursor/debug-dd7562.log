@@ -1,0 +1,15 @@
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterBody","message":"login body","data":{"usernamePresent":true,"passwordPresent":true,"usernameLen":15},"timestamp":1771986256839,"hypothesisId":"E"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterFindUser","message":"after findUnique","data":{"userFound":true,"isActive":true,"status":"APPROVED"},"timestamp":1771986257174,"hypothesisId":"A,B,C"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterVerify","message":"after verifyPassword","data":{"valid":false,"hashLooksBcrypt":true},"timestamp":1771986257237,"hypothesisId":"D"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterBody","message":"login body","data":{"usernamePresent":true,"passwordPresent":true,"usernameLen":15},"timestamp":1771986259950,"hypothesisId":"E"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterFindUser","message":"after findUnique","data":{"userFound":true,"isActive":true,"status":"APPROVED"},"timestamp":1771986259959,"hypothesisId":"A,B,C"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterVerify","message":"after verifyPassword","data":{"valid":false,"hashLooksBcrypt":true},"timestamp":1771986260017,"hypothesisId":"D"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterBody","message":"login body","data":{"usernamePresent":true,"passwordPresent":true,"usernameLen":7},"timestamp":1771986268636,"hypothesisId":"E"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterFindUser","message":"after findUnique","data":{"userFound":true,"isActive":true,"status":"APPROVED"},"timestamp":1771986268666,"hypothesisId":"A,B,C"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterVerify","message":"after verifyPassword","data":{"valid":true,"hashLooksBcrypt":true},"timestamp":1771986268726,"hypothesisId":"D"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterBody","message":"login body","data":{"usernamePresent":true,"passwordPresent":true,"usernameLen":15},"timestamp":1771986287719,"hypothesisId":"E"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterFindUser","message":"after findUnique","data":{"userFound":true,"isActive":true,"status":"APPROVED"},"timestamp":1771986287729,"hypothesisId":"A,B,C"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterVerify","message":"after verifyPassword","data":{"valid":true,"hashLooksBcrypt":true},"timestamp":1771986287792,"hypothesisId":"D"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterBody","message":"login body","data":{"usernamePresent":true,"passwordPresent":true,"usernameLen":7},"timestamp":1771986302436,"hypothesisId":"E"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterFindUser","message":"after findUnique","data":{"userFound":true,"isActive":true,"status":"APPROVED"},"timestamp":1771986302454,"hypothesisId":"A,B,C"}
+{"sessionId":"dd7562","location":"auth/login/route.ts:afterVerify","message":"after verifyPassword","data":{"valid":true,"hashLooksBcrypt":true},"timestamp":1771986302515,"hypothesisId":"D"}

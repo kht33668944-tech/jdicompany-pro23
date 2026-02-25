@@ -41,6 +41,7 @@ model User {
   passwordHash  String    @map("password_hash")
   name          String
   email         String?
+  avatarUrl     String?   @map("avatar_url")
   teamId        String?   @map("team_id")
   role          String    @default("TEAM_MEMBER") // CEO | TEAM_LEADER | TEAM_MEMBER
   status        String    @default("PENDING")     // PENDING | APPROVED
@@ -60,6 +61,10 @@ model User {
   leaveRequests  LeaveRequest[]
   leaveApproved  LeaveRequest[] @relation("LeaveApprovedBy")
   notifications   Notification[]
+  feedPosts       FeedPost[]
+  feedRoomMembers FeedRoomMember[]
+  feedPostReactions FeedPostReaction[]
+  feedPostReads   FeedPostRead[]
 }
 
 model Notification {
@@ -173,6 +178,71 @@ model Announcement {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
   creator       User      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+}
+
+model FeedChannel {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  groupName String    @default("메인") @map("group_name") // 메인, 기타 등
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  posts     FeedPost[]
+}
+
+model FeedRoom {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  members   FeedRoomMember[]
+  posts     FeedPost[]
+}
+
+model FeedRoomMember {
+  id        String   @id @default(uuid())
+  roomId    String   @map("room_id")
+  userId    String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  room      FeedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([roomId, userId])
+}
+
+model FeedPost {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  channelId   String?   @map("channel_id")
+  roomId      String?   @map("room_id")
+  content     String
+  attachments Json?     // [{ type: "image"|"video", url: string, fileName?: string }]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel     FeedChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  room        FeedRoom? @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reactions   FeedPostReaction[]
+  reads       FeedPostRead[]
+}
+
+model FeedPostReaction {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  emoji     String   // 👍, ✓, 💬 등
+  createdAt DateTime @default(now()) @map("created_at")
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([postId, userId, emoji])
+}
+
+model FeedPostRead {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  readAt    DateTime @default(now()) @map("read_at")
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([postId, userId])
 }
 
 model RefreshToken {

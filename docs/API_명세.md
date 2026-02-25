@@ -197,6 +197,23 @@
 }
 ```
 
+- 응답에 `avatarUrl` 포함 가능(프로필 이미지).
+
+---
+
+### 1.7 내 정보(프로필) 수정
+**PATCH** `/auth/me` 또는 **PATCH** `/users/me`
+
+**Request**
+```json
+{
+  "name": "홍길동",
+  "avatarUrl": "https://... or /uploads/avatar/xxx.jpg"
+}
+```
+
+**Response (200)**: 1.6과 동일 구조, 수정된 필드 반영.
+
 ---
 
 ## 2. 팀 (Teams) — 대표 전용
@@ -768,14 +785,19 @@
 
 ---
 
-## 6. 공지 / 회사 일정 (Announcements) — 대표 전용
+## 6. 공지 / 회사 일정 (Announcements)
 
 ### 6.1 공지 목록 조회
 **GET** `/announcements`
 
+**권한**
+- **조회**: 승인(APPROVED) 사용자 전원 (대시보드·목록용). 쿼리 `limit` 사용 시 최근 N건.
+- **작성/수정/삭제**: 대표(CEO) 전용.
+
 **Query**
 | 파라미터 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
+| limit | number | N | 최근 N건 (예: 5). 대시보드용 |
 | start | string (ISO date) | N | 기간 시작 |
 | end | string (ISO date) | N | 기간 끝 |
 | type | string | N | notice / company_event |
@@ -881,10 +903,71 @@
 
 ---
 
-## 7. 대시보드 (대표 전용)
+## 6.5 소통방 (Feed) — 승인 사용자
+
+### 6.5.1 피드 목록 조회
+**GET** `/feed`
+
+**권한**: 승인(APPROVED) 사용자.
+
+**Query**
+| 파라미터 | 타입 | 필수 | 설명 |
+|----------|------|------|------|
+| limit | number | N | 개수 (기본 20) |
+| cursor | string | N | 페이지네이션 커서 (또는 page) |
+
+**Response (200)**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "feed-uuid",
+      "userId": "user-uuid",
+      "userName": "홍길동",
+      "content": "오늘 회의 잘 마쳤습니다.",
+      "attachments": [{ "type": "image", "url": "/uploads/feed/xxx.jpg", "fileName": "photo.jpg" }],
+      "createdAt": "2025-02-23T10:00:00.000Z"
+    }
+  ],
+  "nextCursor": "cursor-string-or-null"
+}
+```
+
+### 6.5.2 피드 게시
+**POST** `/feed`
+
+**권한**: 승인 사용자 전원(또는 CEO/팀장만, 정책에 따름).
+
+**Request**
+- `Content-Type: multipart/form-data` (첨부 시) 또는 `application/json` (텍스트만)
+- 필드: `content` (필수), `files[]` (선택, 이미지/영상). 파일 제한: 이미지 5MB, 영상 50MB; image/*, video/*
+
+**Response (201)**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "feed-uuid",
+    "userId": "user-uuid",
+    "content": "오늘 회의 잘 마쳤습니다.",
+    "attachments": [],
+    "createdAt": "2025-02-23T10:00:00.000Z"
+  }
+}
+```
+
+### 6.5.3 (선택) 피드 수정/삭제
+**PATCH** `/feed/:id`, **DELETE** `/feed/:id` — 본인 글만.
+
+---
+
+## 7. 대시보드
 
 ### 7.1 대시보드 요약
 **GET** `/dashboard/summary`
+
+**권한**: 대표는 전체 요약, 팀원은 본인/팀 관련만 또는 요약만 조회(정책에 따름). **최근 공지**는 승인 사용자에게 노출되므로 응답에 `recentAnnouncements` 포함(또는 클라이언트에서 `GET /announcements?limit=5` 호출).
 
 **Query**
 | 파라미터 | 타입 | 필수 | 설명 |
@@ -956,7 +1039,10 @@
 | GET /events (전체/필터) | ○ | 본인만 |
 | GET/POST/PUT/DELETE /events, PATCH /events/:id/schedule | ○ (전체) | 본인 일정만 |
 | GET/POST/PUT/DELETE,PATCH /tasks | ○ (필터 가능) | 본인만 |
-| GET/POST/PUT/DELETE /announcements | ○ | × (조회만 가능 시 별도 GET 공개) |
-| GET /dashboard/summary | ○ | × |
+| GET /announcements (조회) | ○ | ○ (승인 사용자) |
+| POST/PUT/DELETE /announcements | ○ | × |
+| GET /dashboard/summary | ○ | (정책에 따라) |
+| GET /feed, POST /feed | ○ | ○ (승인 사용자) |
+| PATCH /auth/me (프로필) | ○ | ○ |
 
-팀원이 공지/회사일정을 캘린더에서 보려면, `GET /events`의 `includeAnnouncements=true`로 이미 포함되거나, 공지 전용 조회 API를 “읽기 전용”으로 열어주면 됩니다.
+팀원이 공지/회사일정을 캘린더에서 보려면, `GET /events`의 `includeAnnouncements=true`로 이미 포함되거나, `GET /announcements`(승인 사용자 읽기 허용)를 사용합니다.
