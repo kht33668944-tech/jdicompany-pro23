@@ -1,0 +1,149 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { STATUS_COLORS, STATUS_LABELS } from "./ProgressGauge";
+import TaskDetailModal from "./TaskDetailModal";
+import CreateTaskModal from "./CreateTaskModal";
+
+type TaskItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  dueDate: string;
+  status: string;
+  priority: string;
+  projectName: string | null;
+};
+
+const KANBAN_STATUSES = ["todo", "in_progress", "done"] as const;
+const PRIORITY_LABEL: Record<string, string> = { high: "높음", normal: "보통", low: "낮음" };
+const PRIORITY_CLASS: Record<string, string> = {
+  high: "bg-red-100 text-red-700",
+  normal: "bg-slate-100 text-slate-600",
+  low: "bg-slate-50 text-slate-500",
+};
+
+export default function MeKanban() {
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [myId, setMyId] = useState<string | null>(null);
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+
+  const fetchTasks = useCallback(() => {
+    if (!myId) return;
+    setLoading(true);
+    fetch(`/api/tasks?userId=${myId}`, { credentials: "include" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setTasks(json.data);
+      })
+      .finally(() => setLoading(false));
+  }, [myId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success && j.data) {
+          setMyId(j.data.id);
+          setTeamId(j.data.teamId ?? null);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const byStatus = (status: string) =>
+    tasks.filter((t) => t.status === status && t.status !== "cancelled");
+
+  if (!myId) return null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-slate-800">내 업무</h2>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium"
+        >
+          새 업무 추가
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-slate-500 py-8 text-center">로딩 중...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {KANBAN_STATUSES.map((status) => (
+            <div
+              key={status}
+              className="bg-slate-50 rounded-2xl border border-slate-200 p-4 min-h-[280px]"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className={`w-2 h-2 rounded-full ${STATUS_COLORS[status] || "bg-slate-400"}`}
+                />
+                <span className="font-medium text-slate-700">
+                  {STATUS_LABELS[status]} ({byStatus(status).length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {byStatus(status).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setDetailTaskId(t.id)}
+                    className="w-full text-left bg-white rounded-xl border border-slate-200 p-3 shadow-sm hover:shadow hover:border-slate-300 transition-all"
+                  >
+                    <p className="font-medium text-slate-800 truncate">{t.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded ${PRIORITY_CLASS[t.priority]}`}
+                      >
+                        {PRIORITY_LABEL[t.priority]}
+                      </span>
+                      {t.projectName && (
+                        <span className="text-xs text-slate-500">{t.projectName}</span>
+                      )}
+                      <span className="text-xs text-slate-500">
+                        {format(new Date(t.dueDate), "M/d", { locale: ko })}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {createOpen && (
+        <CreateTaskModal
+          teamId={teamId}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            fetchTasks();
+            setCreateOpen(false);
+          }}
+        />
+      )}
+      {detailTaskId && (
+        <TaskDetailModal
+          taskId={detailTaskId}
+          onClose={() => setDetailTaskId(null)}
+          onUpdated={() => {
+            fetchTasks();
+            setDetailTaskId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
