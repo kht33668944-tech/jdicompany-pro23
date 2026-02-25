@@ -2,7 +2,14 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { success, created, errors } from "@/lib/api-response";
-import { startOfDay } from "date-fns";
+
+const KST = "Asia/Seoul";
+
+/** 오늘 날짜를 Asia/Seoul 기준으로 반환 (저장/조회 일치용) */
+function getTodayKST(): Date {
+  const dateStr = new Date().toLocaleDateString("en-CA", { timeZone: KST });
+  return new Date(`${dateStr}T00:00:00.000Z`);
+}
 
 /** POST: 출근 또는 퇴근 기록. body: { action: "in" | "out" } */
 export async function POST(req: NextRequest) {
@@ -15,7 +22,7 @@ export async function POST(req: NextRequest) {
       return errors.badRequest('action은 "in" 또는 "out"이어야 합니다.');
     }
 
-    const today = startOfDay(new Date());
+    const today = getTodayKST();
     let record = await prisma.attendance.findFirst({
       where: { userId: session.sub, date: today },
     });

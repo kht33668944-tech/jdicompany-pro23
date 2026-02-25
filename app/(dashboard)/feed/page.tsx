@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -15,11 +16,11 @@ import {
   Paperclip,
   Bold,
   MessageCircle,
-  ThumbsUp,
-  Check,
   Plus,
   LayoutGrid,
   Menu,
+  X,
+  UserPlus,
 } from "lucide-react";
 
 type AttachmentItem = { type: "image" | "video"; url: string; fileName?: string };
@@ -46,7 +47,10 @@ type Room = {
   members: { id: string; name: string; avatarUrl: string | null }[];
 };
 
+type ChatUser = { id: string; name: string; avatarUrl: string | null; username?: string };
+
 const REACTION_EMOJIS = ["👍", "✓", "💬", "❤️"];
+const CHANNEL_GROUPS = ["메인", "기타"];
 
 export default function FeedPage() {
   const [channelGroups, setChannelGroups] = useState<ChannelGroup[]>([]);
@@ -63,8 +67,25 @@ export default function FeedPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [posting, setPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [headerTitle, setHeaderTitle] = useState("소통방");
   const [headerMemberCount, setHeaderMemberCount] = useState<number | null>(null);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [appSectionOpen, setAppSectionOpen] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [modalAddChannel, setModalAddChannel] = useState(false);
+  const [modalGroupRoom, setModalGroupRoom] = useState(false);
+  const [modalDM, setModalDM] = useState(false);
+  const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelGroup, setNewChannelGroup] = useState("메인");
+  const [newRoomName, setNewRoomName] = useState("");
+  const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const [myId, setMyId] = useState<string | null>(null);
 
   const loadChannels = () => {
     fetch("/api/feed/channels", { credentials: "include" })
@@ -94,6 +115,10 @@ export default function FeedPage() {
   useEffect(() => {
     loadChannels();
     loadRooms();
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((json) => { if (json.success && json.data?.id) setMyId(json.data.id); })
+      .catch(() => {});
   }, []);
 
   const currentChannel = channelGroups.flatMap((g) => g.list).find((c) => c.id === selectedChannelId);
@@ -112,11 +137,12 @@ export default function FeedPage() {
     }
   }, [selectedChannelId, selectedRoomId, currentChannel, currentRoom]);
 
-  const fetchFeed = (cursor?: string) => {
+  const fetchFeed = (cursor?: string, q?: string) => {
     const params = new URLSearchParams({ limit: "20" });
     if (selectedChannelId) params.set("channelId", selectedChannelId);
     if (selectedRoomId) params.set("roomId", selectedRoomId);
     if (cursor) params.set("cursor", cursor);
+    if (q?.trim()) params.set("q", q.trim());
     const url = `/api/feed?${params.toString()}`;
     setLoading(true);
     fetch(url, { credentials: "include" })
@@ -139,13 +165,136 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (selectedChannelId || selectedRoomId) {
-      fetchFeed();
+      fetchFeed(undefined, searchPanelOpen ? searchInput : undefined);
     } else {
       setItems([]);
       setNextCursor(null);
       setLoading(false);
     }
   }, [selectedChannelId, selectedRoomId]);
+
+  const runSearch = () => {
+    if (selectedChannelId || selectedRoomId) fetchFeed(undefined, searchInput);
+  };
+
+  const loadChatUsers = () => {
+    fetch("/api/feed/chat-users", { credentials: "include" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.users) setChatUsers(json.data.users);
+      })
+      .catch(() => {});
+  };
+
+  const handleAddChannel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChannelName.trim()) return;
+    setModalLoading(true);
+    setModalError("");
+    fetch("/api/feed/channels", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: newChannelName.trim(), groupName: newChannelGroup }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.id) {
+          loadChannels();
+          setSelectedChannelId(json.data.id);
+          setSelectedRoomId(null);
+          setModalAddChannel(false);
+          setNewChannelName("");
+        } else {
+          setModalError(json.error?.message || "채널 생성에 실패했습니다.");
+        }
+      })
+      .catch(() => setModalError("네트워크 오류"))
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleAddGroupRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) return;
+    const userIds = selectedUserIds;
+    if (userIds.length === 0) {
+      setModalError("참여할 멤버를 1명 이상 선택해주세요.");
+      return;
+    }
+    setModalLoading(true);
+    setModalError("");
+    fetch("/api/feed/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: newRoomName.trim(), userIds }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.id) {
+          loadRooms();
+          setSelectedRoomId(json.data.id);
+          setSelectedChannelId(null);
+          setModalGroupRoom(false);
+          setNewRoomName("");
+          setSelectedUserIds([]);
+        } else {
+          setModalError(json.error?.message || "방 생성에 실패했습니다.");
+        }
+      })
+      .catch(() => setModalError("네트워크 오류"))
+      .finally(() => setModalLoading(false));
+  };
+
+  const handleStartDM = (otherUserId: string) => {
+    setModalLoading(true);
+    setModalError("");
+    fetch("/api/feed/rooms/direct", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ otherUserId }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data?.id) {
+          loadRooms();
+          setSelectedRoomId(json.data.id);
+          setSelectedChannelId(null);
+          setModalDM(false);
+        } else {
+          setModalError(json.error?.message || "1:1 채팅을 시작할 수 없습니다.");
+        }
+      })
+      .catch(() => setModalError("네트워크 오류"))
+      .finally(() => setModalLoading(false));
+  };
+
+  const toggleUserId = (id: string) => {
+    setSelectedUserIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const insertMention = (name: string) => {
+    const text = `@${name} `;
+    if (contentRef.current) {
+      const start = contentRef.current.selectionStart ?? 0;
+      const end = contentRef.current.selectionEnd ?? 0;
+      const before = content.slice(0, start);
+      const after = content.slice(end);
+      setContent(before + text + after);
+      setMentionOpen(false);
+      setTimeout(() => contentRef.current?.focus(), 0);
+    } else {
+      setContent((c) => c + text);
+      setMentionOpen(false);
+    }
+  };
+
+  const mentionList: ChatUser[] = selectedRoomId && currentRoom ? currentRoom.members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl })) : chatUsers;
+  const openMention = () => {
+    setMentionOpen(true);
+    if (selectedChannelId && !chatUsers.length) loadChatUsers();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,14 +396,24 @@ export default function FeedPage() {
         <div className="flex-1 overflow-y-auto py-2">
           {/* 토픽 */}
           <div className="px-2">
-            <button
-              type="button"
-              onClick={() => setTopicOpen((o) => ({ ...o, topic: !o.topic }))}
-              className="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg px-2"
-            >
-              <span>토픽 {channelGroups.reduce((n, g) => n + g.list.length, 0)}</span>
-              {topicOpen.topic ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            </button>
+            <div className="w-full flex items-center justify-between py-2 px-2">
+              <button
+                type="button"
+                onClick={() => setTopicOpen((o) => ({ ...o, topic: !o.topic }))}
+                className="flex-1 flex items-center justify-between text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg py-1 -mx-1"
+              >
+                <span>토픽 {channelGroups.reduce((n, g) => n + g.list.length, 0)}</span>
+                {topicOpen.topic ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setModalAddChannel(true); setModalError(""); setNewChannelName(""); setNewChannelGroup("메인"); }}
+                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                title="채널 추가"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
             {topicOpen.topic !== false && (
               <div className="pl-2 space-y-0.5">
                 {channelGroups.map((group) => {
@@ -287,17 +446,28 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* 채팅 (그룹만) */}
+          {/* 채팅 (그룹 + 1:1) */}
           <div className="px-2 mt-2 border-t border-slate-100 pt-2">
             <div className="flex items-center justify-between py-2">
               <span className="text-sm font-medium text-slate-700">채팅 {rooms.length}</span>
-              <button
-                type="button"
-                title="새 그룹 채팅"
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setModalDM(true); setModalError(""); loadChatUsers(); }}
+                  title="1:1 채팅"
+                  className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }}
+                  title="새 그룹 채팅"
+                  className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="space-y-0.5">
               {filterRooms(rooms).map((room) => (
@@ -319,7 +489,11 @@ export default function FeedPage() {
                       <Users className="w-4 h-4 text-slate-500" />
                     )}
                   </div>
-                  <span className="truncate flex-1">{room.name}</span>
+                  <span className="truncate flex-1">
+                    {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId)
+                      ? room.members.find((m) => m.id !== myId)!.name
+                      : room.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -329,19 +503,25 @@ export default function FeedPage() {
           <div className="px-2 mt-2 border-t border-slate-100 pt-2">
             <button
               type="button"
+              onClick={() => setAppSectionOpen((o) => !o)}
               className="w-full flex items-center gap-2 py-2 text-sm text-slate-500 hover:text-slate-700"
             >
-              <ChevronRight className="w-4 h-4" />
+              {appSectionOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               앱
             </button>
-            <div className="flex gap-1 px-2">
-              <button type="button" className="p-2 rounded hover:bg-slate-100" title="메뉴">
-                <Menu className="w-4 h-4 text-slate-500" />
-              </button>
-              <button type="button" className="p-2 rounded hover:bg-slate-100" title="앱">
-                <LayoutGrid className="w-4 h-4 text-slate-500" />
-              </button>
-            </div>
+            {appSectionOpen && (
+              <div className="pl-2 py-2 flex flex-col gap-1">
+                <div className="flex gap-1">
+                  <button type="button" className="p-2 rounded hover:bg-slate-100" title="메뉴">
+                    <Menu className="w-4 h-4 text-slate-500" />
+                  </button>
+                  <button type="button" className="p-2 rounded hover:bg-slate-100" title="앱">
+                    <LayoutGrid className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400">추가 예정</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -349,31 +529,74 @@ export default function FeedPage() {
       {/* 메인 영역 */}
       <main className="flex-1 flex flex-col min-w-0 bg-white">
         {/* 헤더 */}
-        <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-slate-800 truncate">{headerTitle}</h1>
-            {headerMemberCount != null && (
-              <span className="flex items-center gap-1 text-sm text-slate-500">
-                <Users className="w-4 h-4" />
-                {headerMemberCount}
-              </span>
-            )}
+        <header className="flex-shrink-0 border-b border-slate-200">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold text-slate-800 truncate">{headerTitle}</h1>
+              {headerMemberCount != null && (
+                <span className="flex items-center gap-1 text-sm text-slate-500">
+                  <Users className="w-4 h-4" />
+                  {headerMemberCount}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 relative">
+              <button type="button" onClick={() => setSearchPanelOpen((o) => { if (!o) setSearchInput(""); return !o; })} className={`p-2 rounded-lg ${searchPanelOpen ? "bg-blue-50 text-blue-600" : "hover:bg-slate-100 text-slate-500"}`} title="검색">
+                <Search className="w-4 h-4" />
+              </button>
+              <Link href="/dashboard" className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="알림">
+                <MessageCircle className="w-4 h-4" />
+              </Link>
+              <div className="relative">
+                <button type="button" onClick={() => setMoreOpen((o) => !o)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="더보기">
+                  <span className="text-slate-500 font-bold">⋯</span>
+                </button>
+                {moreOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 py-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 min-w-[140px]">
+                      {selectedChannelId && currentChannel && (
+                        <div className="px-3 py-2 text-sm text-slate-600 border-b border-slate-100">
+                          <p className="font-medium">채널 정보</p>
+                          <p className="text-slate-500">{currentChannel.name} · {currentChannel.slug}</p>
+                        </div>
+                      )}
+                      {selectedRoomId && currentRoom && (
+                        <div className="px-3 py-2 text-sm text-slate-600 border-b border-slate-100">
+                          <p className="font-medium">대화방 멤버</p>
+                          <p className="text-slate-500">{currentRoom.members.map((m) => m.name).join(", ")}</p>
+                        </div>
+                      )}
+                      {!selectedChannelId && !selectedRoomId && (
+                        <p className="px-3 py-2 text-sm text-slate-500">채널 또는 대화방을 선택하세요.</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="검색">
-              <Search className="w-4 h-4" />
-            </button>
-            <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="알림">
-              <MessageCircle className="w-4 h-4" />
-            </button>
-            <button type="button" className="p-2 rounded-lg hover:bg-slate-100 text-slate-500" title="더보기">
-              <span className="text-slate-500 font-bold">⋯</span>
-            </button>
-          </div>
+          {searchPanelOpen && (
+            <div className="px-4 pb-3 flex gap-2">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), runSearch())}
+                placeholder="메시지 검색..."
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button type="button" onClick={runSearch} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm">검색</button>
+              <button type="button" onClick={() => { setSearchPanelOpen(false); setSearchInput(""); if (selectedChannelId || selectedRoomId) fetchFeed(); }} className="px-3 py-2 rounded-lg border border-slate-200 text-sm">취소</button>
+            </div>
+          )}
         </header>
 
         {/* 타임라인 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {searchPanelOpen && searchInput.trim() && (selectedChannelId || selectedRoomId) && (
+            <p className="text-sm text-slate-500">검색 결과: &quot;{searchInput}&quot;</p>
+          )}
           {!selectedChannelId && !selectedRoomId ? (
             <div className="py-12 text-center text-slate-500 text-sm">왼쪽에서 채널 또는 대화방을 선택하세요.</div>
           ) : loading && items.length === 0 ? (
@@ -482,14 +705,31 @@ export default function FeedPage() {
         {(selectedChannelId || selectedRoomId) && (
           <div className="flex-shrink-0 border-t border-slate-200 p-4 bg-slate-50">
             <form onSubmit={handleSubmit}>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onBlur={() => items.forEach((p) => markRead(p.id))}
-                placeholder="메시지를 입력하세요....."
-                rows={3}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-              />
+              <div className="relative">
+                <textarea
+                  ref={contentRef}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  onBlur={() => items.forEach((p) => markRead(p.id))}
+                  placeholder="메시지를 입력하세요....."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                />
+                {mentionOpen && (
+                  <>
+                    <div className="absolute inset-0 z-10" onClick={() => setMentionOpen(false)} />
+                    <div className="absolute bottom-full left-0 mb-1 py-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto min-w-[180px]">
+                      {mentionList.map((u) => (
+                        <button key={u.id} type="button" onClick={() => insertMention(u.name)} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+                          {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs">{u.name.slice(0, 1)}</div>}
+                          {u.name}
+                        </button>
+                      ))}
+                      {mentionList.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">멤버 없음</p>}
+                    </div>
+                  </>
+                )}
+              </div>
               {files.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {files.map((f, i) => (
@@ -528,13 +768,17 @@ export default function FeedPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={openMention}
                     className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
-                    title="멘션"
+                    title="멘션 (@이름)"
                   >
                     <AtSign className="w-4 h-4" />
                   </button>
-                  <button type="button" className="p-2 rounded-lg hover:bg-slate-200 text-slate-600" title="서식">
+                  <button
+                    type="button"
+                    className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
+                    title="굵게: **텍스트** 입력"
+                  >
                     <Bold className="w-4 h-4" />
                   </button>
                   <button
@@ -570,6 +814,94 @@ export default function FeedPage() {
           </div>
         )}
       </main>
+
+      {/* 모달: 채널 추가 */}
+      {modalAddChannel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !modalLoading && setModalAddChannel(false)}>
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">채널 추가</h2>
+              <button type="button" onClick={() => !modalLoading && setModalAddChannel(false)} className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleAddChannel} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">채널 이름</label>
+                <input value={newChannelName} onChange={(e) => setNewChannelName(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="예: 업무 공유" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">그룹</label>
+                <select value={newChannelGroup} onChange={(e) => setNewChannelGroup(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+                  {CHANNEL_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              {modalError && <p className="text-sm text-red-600">{modalError}</p>}
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setModalAddChannel(false)} className="px-3 py-2 rounded-lg border border-slate-200 text-sm">취소</button>
+                <button type="submit" disabled={modalLoading || !newChannelName.trim()} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-50">추가</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 새 그룹 채팅 */}
+      {modalGroupRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !modalLoading && setModalGroupRoom(false)}>
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">새 그룹 채팅</h2>
+              <button type="button" onClick={() => !modalLoading && setModalGroupRoom(false)} className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleAddGroupRoom} className="flex flex-col flex-1 min-h-0 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">방 이름</label>
+                <input value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="예: 프로젝트 A팀" required />
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col">
+                <label className="block text-sm font-medium text-slate-700 mb-1">멤버 선택</label>
+                <div className="border border-slate-200 rounded-lg p-2 overflow-y-auto max-h-48 space-y-1">
+                  {chatUsers.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={selectedUserIds.includes(u.id)} onChange={() => toggleUserId(u.id)} className="rounded" />
+                      {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs">{u.name.slice(0, 1)}</div>}
+                      <span className="text-sm">{u.name}</span>
+                    </label>
+                  ))}
+                  {chatUsers.length === 0 && <p className="text-sm text-slate-500 py-2">로딩 중이거나 선택 가능한 사용자가 없습니다.</p>}
+                </div>
+              </div>
+              {modalError && <p className="text-sm text-red-600">{modalError}</p>}
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setModalGroupRoom(false)} className="px-3 py-2 rounded-lg border border-slate-200 text-sm">취소</button>
+                <button type="submit" disabled={modalLoading || !newRoomName.trim()} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-50">만들기</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 모달: 1:1 채팅 */}
+      {modalDM && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !modalLoading && setModalDM(false)}>
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">1:1 채팅</h2>
+              <button type="button" onClick={() => !modalLoading && setModalDM(false)} className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-600 mb-2">대화할 상대를 선택하세요.</p>
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {chatUsers.map((u) => (
+                <button key={u.id} type="button" onClick={() => handleStartDM(u.id)} disabled={modalLoading} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 text-left disabled:opacity-50">
+                  {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-sm">{u.name.slice(0, 1)}</div>}
+                  <span className="text-sm font-medium">{u.name}</span>
+                </button>
+              ))}
+              {chatUsers.length === 0 && <p className="text-sm text-slate-500 py-2">로딩 중이거나 선택 가능한 사용자가 없습니다.</p>}
+            </div>
+            {modalError && <p className="text-sm text-red-600 mt-2">{modalError}</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

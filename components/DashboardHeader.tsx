@@ -39,6 +39,22 @@ export default function DashboardHeader({ userName }: { userName: string }) {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const markAsRead = (id: string) => {
+    fetch(`/api/notifications/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ isRead: true }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+        }
+      })
+      .catch(() => {});
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-5">
       <div className="max-w-6xl mx-auto flex items-start justify-between gap-4">
@@ -77,7 +93,10 @@ export default function DashboardHeader({ userName }: { userName: string }) {
                     <li key={n.id}>
                       <Link
                         href={n.link || "#"}
-                        onClick={() => setOpen(false)}
+                        onClick={() => {
+                          if (!n.isRead) markAsRead(n.id);
+                          setOpen(false);
+                        }}
                         className={`block px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${!n.isRead ? "bg-blue-50/50" : ""}`}
                       >
                         <span className="text-slate-800 font-medium">{n.title}</span>

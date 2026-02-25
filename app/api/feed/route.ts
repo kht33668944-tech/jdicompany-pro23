@@ -30,8 +30,15 @@ export async function GET(req: NextRequest) {
     const cursor = searchParams.get("cursor") || undefined;
     const channelId = searchParams.get("channelId") || undefined;
     const roomId = searchParams.get("roomId") || undefined;
+    const q = searchParams.get("q")?.trim();
 
-    let where: { channelId?: string | null; roomId?: string | null } = {};
+    type WhereClause = {
+      channelId?: string | null;
+      roomId?: string | null;
+      OR?: { channelId: string | null }[];
+      content?: { contains: string; mode: "insensitive" };
+    };
+    let where: WhereClause = {};
     if (roomId) {
       const member = await prisma.feedRoomMember.findUnique({
         where: { roomId_userId: { roomId, userId: session.sub } },
@@ -53,6 +60,9 @@ export async function GET(req: NextRequest) {
         where.roomId = null;
         where.channelId = null;
       }
+    }
+    if (q) {
+      where.content = { contains: q, mode: "insensitive" };
     }
 
     const list = await prisma.feedPost.findMany({

@@ -21,14 +21,20 @@ export default function AttendanceButtons() {
     fetch(`/api/attendance?from=${todayStr}&to=${todayStr}`, { credentials: "include" })
       .then((r) => r.json())
       .then((j) => {
-        if (j.success && j.data?.length > 0) {
-          const first = j.data[0];
-          setToday({
-            id: first.id,
-            date: first.date,
-            checkIn: first.checkIn ?? null,
-            checkOut: first.checkOut ?? null,
-          });
+        if (j.success && Array.isArray(j.data)) {
+          const recordDateStr = (d: { date?: string | Date }) =>
+            typeof d.date === "string" ? d.date.slice(0, 10) : d.date ? format(new Date(d.date), "yyyy-MM-dd") : "";
+          const todayRecord = j.data.find((d: { date?: string | Date }) => recordDateStr(d) === todayStr);
+          if (todayRecord) {
+            setToday({
+              id: todayRecord.id,
+              date: todayRecord.date,
+              checkIn: todayRecord.checkIn ?? null,
+              checkOut: todayRecord.checkOut ?? null,
+            });
+          } else {
+            setToday(null);
+          }
         } else {
           setToday(null);
         }
