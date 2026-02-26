@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import CalendarView from "@/components/CalendarView";
+import EventManagerCalendar from "@/components/EventManagerCalendar";
 
 export default async function CalendarPage() {
   const session = await getSession();
@@ -9,7 +9,7 @@ export default async function CalendarPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <h1 className="text-xl font-semibold text-slate-800 mb-4">캘린더</h1>
-      <CalendarView isCEO={isCEO} />
+      <EventManagerCalendar isCEO={isCEO} />
     </div>
   );
 }

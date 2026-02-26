@@ -16,7 +16,7 @@ export async function GET(
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
-        assignee: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, avatarUrl: true } },
         team: { select: { id: true, name: true } },
       },
     });
@@ -34,12 +34,15 @@ export async function GET(
       end: event.endAt,
       assigneeId: event.assigneeId,
       assigneeName: event.assignee.name,
+      assigneeAvatarUrl: event.assignee.avatarUrl ?? null,
       teamId: event.teamId,
       teamName: event.team.name,
       status: event.status,
       priority: event.priority,
       recurrence: event.recurrence,
       remindAt: event.remindAt,
+      category: event.category ?? null,
+      color: event.color ?? null,
       isAnnouncement: false,
       createdBy: event.createdBy,
       createdAt: event.createdAt,
@@ -64,7 +67,7 @@ export async function PUT(
     if (!isCEO(session.role) && event.assigneeId !== session.sub) return errors.forbidden();
 
     const body = await req.json();
-    const { title, description, start, end, assigneeId, teamId, status, priority, recurrence, remindMinutesBefore } = body;
+    const { title, description, start, end, assigneeId, teamId, status, priority, recurrence, remindMinutesBefore, category, color } = body;
 
     const updateData: {
       title?: string;
@@ -77,6 +80,8 @@ export async function PUT(
       priority?: string;
       recurrence?: unknown;
       remindAt?: Date | null;
+      category?: string | null;
+      color?: string | null;
     } = {};
 
     if (title !== undefined) updateData.title = String(title).trim();
@@ -96,6 +101,8 @@ export async function PUT(
       if (assigneeId) updateData.assigneeId = assigneeId;
       if (teamId) updateData.teamId = teamId;
     }
+    if (category !== undefined) updateData.category = category && ["전체 공지", "팀 일정", "연차", "기타"].includes(category) ? category : null;
+    if (color !== undefined) updateData.color = color && ["blue", "green", "purple", "orange", "pink", "red", "slate"].includes(color) ? color : null;
 
     const updated = await prisma.event.update({
       where: { id: eventId },

@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       where,
       orderBy: { startAt: "asc" },
       include: {
-        assignee: { select: { id: true, name: true } },
+        assignee: { select: { id: true, name: true, avatarUrl: true } },
         team: { select: { id: true, name: true } },
       },
     });
@@ -63,12 +63,15 @@ export async function GET(req: NextRequest) {
       end: e.endAt,
       assigneeId: e.assigneeId,
       assigneeName: e.assignee.name,
+      assigneeAvatarUrl: e.assignee.avatarUrl ?? null,
       teamId: e.teamId,
       teamName: e.team.name,
       status: e.status,
       priority: e.priority,
       recurrence: e.recurrence,
       remindAt: e.remindAt,
+      category: e.category ?? null,
+      color: e.color ?? null,
       isAnnouncement: false,
       createdBy: e.createdBy,
       createdAt: e.createdAt,
@@ -88,12 +91,15 @@ export async function GET(req: NextRequest) {
         end: a.eventDate ?? startDate,
         assigneeId: null,
         assigneeName: null,
+        assigneeAvatarUrl: null,
         teamId: null,
         teamName: null,
         status: "scheduled",
         priority: "normal",
         recurrence: null,
         remindAt: null,
+        category: "전체 공지",
+        color: "slate",
         isAnnouncement: true,
         createdBy: null,
         createdAt: null,
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
     const body = await req.json();
-    const { title, description, start, end, assigneeId, teamId, status, priority, recurrence, remindMinutesBefore } = body;
+    const { title, description, start, end, assigneeId, teamId, status, priority, recurrence, remindMinutesBefore, category, color } = body;
 
     if (!title?.trim()) return errors.badRequest("제목을 입력해주세요.");
     if (!start || !end) return errors.badRequest("시작·종료 일시가 필요합니다.");
@@ -147,6 +153,8 @@ export async function POST(req: NextRequest) {
         priority: priority || "normal",
         recurrence: recurrence ?? undefined,
         remindAt,
+        category: category && ["전체 공지", "팀 일정", "연차", "기타"].includes(category) ? category : null,
+        color: color && ["blue", "green", "purple", "orange", "pink", "red", "slate"].includes(color) ? color : null,
         createdBy: session.sub,
       },
       include: {
