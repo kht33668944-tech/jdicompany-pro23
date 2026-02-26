@@ -1,9 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
+import { sendPushToUser } from "@/lib/push";
 
 const DEDUP_SECONDS = 5;
 
 /**
  * 서버에서 알림 생성. 동일 userId + link + type 5초 이내 중복 시 생성하지 않음.
+ * 생성 후 해당 사용자에게 Web Push 발송 (구독이 있는 경우).
  * 실패해도 예외를 던지지 않고 무시 (알림 실패가 메인 플로우를 깨지 않도록).
  */
 export async function createNotification(
@@ -35,6 +37,12 @@ export async function createNotification(
         title: title.trim(),
         link: linkVal,
       },
+    });
+
+    await sendPushToUser(prisma, userId, {
+      title: title.trim(),
+      body: title.trim(),
+      url: linkVal ?? undefined,
     });
   } catch {
     // 알림 생성 실패 시 메인 플로우는 유지

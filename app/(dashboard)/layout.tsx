@@ -4,6 +4,7 @@ import { verifyAccessToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import DashboardNav from "@/components/DashboardNav";
 import DashboardHeader from "@/components/DashboardHeader";
+import PushRegistration from "@/components/PushRegistration";
 
 export default async function DashboardLayout({
   children,
@@ -25,6 +26,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      <PushRegistration />
       <DashboardNav
         user={{
           id: user.id,

@@ -13,6 +13,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e293b" />
+      </head>
       <body className="antialiased min-h-screen">{children}</body>
     </html>
   );

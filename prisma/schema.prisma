@@ -63,10 +63,21 @@ model User {
   leaveRequests  LeaveRequest[]
   leaveApproved  LeaveRequest[] @relation("LeaveApprovedBy")
   notifications   Notification[]
+  pushSubscriptions PushSubscription[]
   feedPosts       FeedPost[]
   feedRoomMembers FeedRoomMember[]
   feedPostReactions FeedPostReaction[]
   feedPostReads   FeedPostRead[]
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh   String   @map("p256dh")
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
