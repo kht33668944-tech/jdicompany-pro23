@@ -14,6 +14,9 @@ export async function createNotification(
 ): Promise<void> {
   try {
     const { userId, type, title, link } = params;
+    // #region agent log
+    fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'notify.ts:createNotification',message:'createNotification entry',data:{userId,type,title:title?.slice(0,30)},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!userId || !type?.trim() || !title?.trim()) return;
 
     const linkVal = link === undefined || link === null ? null : (link && String(link).trim()) || null;
@@ -28,7 +31,12 @@ export async function createNotification(
         deletedAt: null,
       },
     });
-    if (existing) return;
+    if (existing) {
+      // #region agent log
+      fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'notify.ts:createNotification',message:'skipped dedup',data:{userId,type},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
 
     await prisma.notification.create({
       data: {
@@ -44,7 +52,10 @@ export async function createNotification(
       body: title.trim(),
       url: linkVal ?? undefined,
     });
-  } catch {
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'notify.ts:createNotification',message:'catch',data:{err: String((err as Error).message)},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     // 알림 생성 실패 시 메인 플로우는 유지
   }
 }

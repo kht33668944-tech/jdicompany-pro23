@@ -205,6 +205,9 @@ export async function POST(req: NextRequest) {
         where: { roomId },
         select: { userId: true },
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'feed/route.ts:roomNotify',message:'feed room members',data:{roomId,senderId:session.sub,memberUserIds:members.map(m=>m.userId),memberCount:members.length},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const senderName = post.user.name;
       const link = `/feed?roomId=${roomId}`;
       const title = `${senderName}님이 메시지를 보냈습니다`;

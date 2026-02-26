@@ -27,6 +27,11 @@
 
 설정 후 서버를 재시작하세요.
 
+**Vercel 등 배포 환경:** `.env`는 저장소에 올라가지 않으므로, **Vercel 대시보드**에서 반드시 같은 변수를 넣어야 푸시가 발송됩니다.  
+→ 프로젝트 선택 → **Settings** → **Environment Variables** → **Production**에  
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`(와 필요 시 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`)를 로컬 `.env`와 **동일한 값**으로 추가한 뒤, 재배포하거나 다음 배포에서 적용되면 됩니다.  
+여기 없으면 배포된 서버에서는 푸시가 나가지 않고, 휴대폰에 알림이 오지 않습니다.
+
 ## 2. PWA 아이콘 (선택)
 
 `public/icon-192.png`, `public/icon-512.png`를 넣으면 앱 설치·알림 아이콘으로 사용됩니다. 없어도 푸시는 동작합니다.

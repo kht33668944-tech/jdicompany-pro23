@@ -37,14 +37,26 @@ export async function sendPushToUser(
   payload: PushPayload
 ): Promise<void> {
   const { publicKey } = getVapidKeys();
-  if (!publicKey) return;
+  // #region agent log
+  fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'push.ts:sendPushToUser',message:'sendPushToUser',data:{userId,hasVapid:!!publicKey},timestamp:Date.now(),hypothesisId:'C,D'})}).catch(()=>{});
+  // #endregion
+  if (!publicKey) {
+    console.warn("[push] VAPID public key missing – 푸시 발송 생략. Vercel 환경 변수 확인.");
+    return;
+  }
 
   ensureVapid();
 
   const subs = await prisma.pushSubscription.findMany({
     where: { userId },
   });
-  if (subs.length === 0) return;
+  // #region agent log
+  fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'push.ts:sendPushToUser',message:'subs count',data:{userId,subsCount:subs.length},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+  if (subs.length === 0) {
+    console.warn("[push] 구독 없음 userId=" + userId + " – 휴대폰에서 알림 켜기 후 다시 시도.");
+    return;
+  }
 
   const payloadStr = JSON.stringify({
     title: payload.title,
@@ -52,6 +64,7 @@ export async function sendPushToUser(
     url: payload.url ?? "",
   });
 
+  console.log("[push] 발송 시도 userId=" + userId + " 구독 수=" + subs.length);
   for (const sub of subs) {
     try {
       await webpush.sendNotification(
@@ -62,8 +75,13 @@ export async function sendPushToUser(
         payloadStr,
         { TTL: 86400 }
       );
+      console.log("[push] 발송 성공 userId=" + userId);
     } catch (err: unknown) {
       const status = err && typeof err === "object" && "statusCode" in err ? (err as { statusCode?: number }).statusCode : undefined;
+      // #region agent log
+      fetch('http://127.0.0.1:7707/ingest/e44db668-df21-4b1a-b1d8-a6c0db0aa402',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'dd7562'},body:JSON.stringify({sessionId:'dd7562',location:'push.ts:sendNotification',message:'webpush error',data:{userId,status,errMsg: err instanceof Error ? err.message : String(err)},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      console.error("[push] 발송 실패 userId=" + userId + " status=" + status + " err=" + (err instanceof Error ? err.message : String(err)));
       if (status === 410 || status === 404 || status === 403) {
         try {
           await prisma.pushSubscription.delete({ where: { id: sub.id } });
