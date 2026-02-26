@@ -189,6 +189,7 @@ model Announcement {
   targetType    String    @map("target_type") @default("all")
   targetTeamId  String?   @map("target_team_id")
   eventDate     DateTime? @map("event_date")
+  attachments   Json?
   createdBy     String    @map("created_by")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")

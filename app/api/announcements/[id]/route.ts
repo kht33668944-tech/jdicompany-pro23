@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, isCEO } from "@/lib/auth";
+import { requireSession, isCEO, isTeamLeader } from "@/lib/auth";
 import { success, errors } from "@/lib/api-response";
 
 export async function PUT(
@@ -9,7 +9,7 @@ export async function PUT(
 ) {
   try {
     const session = await requireSession();
-    if (!isCEO(session.role)) return errors.forbidden();
+    if (!isCEO(session.role) && !isTeamLeader(session.role)) return errors.forbidden();
 
     const { id } = await params;
     const body = await req.json();
@@ -48,7 +48,7 @@ export async function DELETE(
 ) {
   try {
     const session = await requireSession();
-    if (!isCEO(session.role)) return errors.forbidden();
+    if (!isCEO(session.role) && !isTeamLeader(session.role)) return errors.forbidden();
 
     const { id } = await params;
     const ann = await prisma.announcement.findUnique({ where: { id } });

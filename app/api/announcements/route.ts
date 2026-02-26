@@ -1,7 +1,21 @@
 import { NextRequest } from "next/server";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireSession, isCEO } from "@/lib/auth";
+import { requireSession, isCEO, isTeamLeader } from "@/lib/auth";
 import { success, created, errors } from "@/lib/api-response";
+
+const ANNOUNCEMENT_MAX_BYTES = 10 * 1024 * 1024; // 10MB per file
+const UPLOAD_DIR =
+  process.env.UPLOAD_ANNOUNCEMENT_PATH || path.join(process.cwd(), "public", "uploads", "announcements");
+
+type AnnouncementAttachment = {
+  url: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -38,7 +52,9 @@ export async function GET(req: NextRequest) {
       targetType: a.targetType,
       targetTeamId: a.targetTeamId,
       eventDate: a.eventDate,
+      attachments: (a.attachments as AnnouncementAttachment[] | null) ?? [],
       createdBy: a.createdBy,
+      creatorName: a.creator?.name ?? null,
       createdAt: a.createdAt,
     }));
 
@@ -52,10 +68,55 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    if (!isCEO(session.role)) return errors.forbidden();
+    if (!isCEO(session.role) && !isTeamLeader(session.role)) return errors.forbidden();
 
-    const body = await req.json();
-    const { type, title, content, targetType, targetTeamId, eventDate } = body;
+    const contentType = req.headers.get("content-type") || "";
+    let type: string | null = null;
+    let title: string | null = null;
+    let content: string | null = null;
+    let targetType: string | null = null;
+    let targetTeamId: string | null = null;
+    let eventDate: string | null = null;
+    let attachments: AnnouncementAttachment[] = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      type = (formData.get("type") as string | null) ?? null;
+      title = (formData.get("title") as string | null) ?? null;
+      content = (formData.get("content") as string | null) ?? null;
+      targetType = (formData.get("targetType") as string | null) ?? null;
+      targetTeamId = (formData.get("targetTeamId") as string | null) ?? null;
+      eventDate = (formData.get("eventDate") as string | null) ?? null;
+
+      const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+      if (files.length) {
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        for (const file of files) {
+          if (file.size > ANNOUNCEMENT_MAX_BYTES) continue;
+          const safeName = file.name || "attachment";
+          const extFromName = safeName.includes(".") ? safeName.slice(safeName.lastIndexOf(".")) : "";
+          const baseName = randomUUID() + extFromName;
+          const filePath = path.join(UPLOAD_DIR, baseName);
+          await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+          const url = "/uploads/announcements/" + baseName;
+          attachments.push({
+            url,
+            fileName: safeName,
+            mimeType: file.type || undefined,
+            size: file.size || undefined,
+          });
+        }
+      }
+    } else {
+      const body = await req.json();
+      type = body.type ?? null;
+      title = body.title ?? null;
+      content = body.content ?? null;
+      targetType = body.targetType ?? null;
+      targetTeamId = body.targetTeamId ?? null;
+      eventDate = body.eventDate ?? null;
+      if (Array.isArray(body.attachments)) attachments = body.attachments as AnnouncementAttachment[];
+    }
 
     if (!type || !title?.trim()) return errors.badRequest("구분과 제목을 입력해주세요.");
 
@@ -67,6 +128,7 @@ export async function POST(req: NextRequest) {
         targetType: targetType === "team" ? "team" : "all",
         targetTeamId: targetType === "team" ? targetTeamId || null : null,
         eventDate: eventDate ? new Date(eventDate) : null,
+        attachments: attachments.length ? (attachments as unknown as object) : null,
         createdBy: session.sub,
       },
     });
