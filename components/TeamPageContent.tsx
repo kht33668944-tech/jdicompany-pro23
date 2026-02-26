@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ProjectCards from "./ProjectCards";
 import CreateProjectModal from "./CreateProjectModal";
-import TeamScheduleCard from "./TeamScheduleCard";
+import TeamTimeline from "./TeamTimeline";
 import TeamKanban from "./TeamKanban";
 
 export default function TeamPageContent({
@@ -19,13 +19,14 @@ export default function TeamPageContent({
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
   return (
-    <div className="space-y-8">
-      {/* 이번 주 일정 블록 (같은 페이지 내 상단) */}
-      <section>
-        <TeamScheduleCard teamId={teamId} topTasks={5} />
+    <div className="flex flex-col gap-6 sm:gap-8">
+      {/* 1. 상단: 팀 일정·연차 타임라인 (Simplified Calendar List) */}
+      <section className="w-full min-w-0">
+        <TeamTimeline teamId={teamId} />
       </section>
 
-      <section>
+      {/* 2. 중앙: 프로젝트 및 업무 현황 */}
+      <section className="w-full min-w-0">
         <ProjectCards
           teamId={teamId}
           canCreate={canCreateProject}
@@ -34,7 +35,7 @@ export default function TeamPageContent({
         />
       </section>
 
-      <section>
+      <section className="w-full min-w-0">
         <TeamKanban teamId={teamId} teamName={teamName} />
       </section>
 

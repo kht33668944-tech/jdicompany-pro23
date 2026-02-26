@@ -53,9 +53,9 @@ export async function GET(
           startAt: { gte: fromDate, lte: toDate },
         },
         orderBy: { startAt: "asc" },
-        take: 30,
+        take: 50,
         include: {
-          assignee: { select: { name: true } },
+          assignee: { select: { name: true, avatarUrl: true } },
         },
       }),
       prisma.leaveRequest.findMany({
@@ -66,7 +66,7 @@ export async function GET(
           endDate: { gte: fromDate },
         },
         orderBy: { startDate: "asc" },
-        include: { user: { select: { name: true } } },
+        include: { user: { select: { name: true, avatarUrl: true } } },
       }),
     ]);
 
@@ -82,14 +82,19 @@ export async function GET(
       events: events.map((e) => ({
         id: e.id,
         title: e.title,
+        description: e.description,
         startAt: e.startAt,
         endAt: e.endAt,
         assigneeName: e.assignee.name,
+        assigneeAvatarUrl: e.assignee.avatarUrl ?? null,
+        category: e.category ?? null,
+        color: e.color ?? "blue",
       })),
       leaveRequests: leaveRequests.map((l) => ({
         id: l.id,
         userId: l.userId,
         userName: l.user.name,
+        userAvatarUrl: l.user.avatarUrl ?? null,
         startDate: l.startDate,
         endDate: l.endDate,
         status: l.status,

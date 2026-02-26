@@ -35,8 +35,8 @@ export default async function TeamPage({
   const canCreateProject = isCEO(session.role) || (isTeamLeader(me?.role ?? "") && isMember);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <h1 className="text-xl font-semibold text-slate-800 mb-6">{team.name}</h1>
+    <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
+      <h1 className="mb-4 text-xl font-semibold text-slate-800 sm:mb-6 sm:text-2xl">{team.name}</h1>
       <TeamPageContent
         teamId={team.id}
         teamName={team.name}

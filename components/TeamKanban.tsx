@@ -74,17 +74,17 @@ export default function TeamKanban({
     tasks.filter((t) => t.status === status && t.status !== "cancelled");
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <span className="text-sm font-medium text-slate-600">프로젝트</span>
-        <span className="text-xs text-slate-500">
-          준비중 {todoCount} · 진행중 {inProgressCount} · 완료 {doneCount}
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+        <h2 className="text-lg font-semibold text-slate-800 sm:text-xl">업무 현황</h2>
+        <span className="text-xs text-slate-500 sm:text-sm">
+          준비 {todoCount} · 진행 {inProgressCount} · 완료 {doneCount}
           {total > 0 && ` (${progressPercent}%)`}
         </span>
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-xl text-sm"
+          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">전체 (팀 전체 업무)</option>
           {projects.map((p) => (
@@ -94,24 +94,24 @@ export default function TeamKanban({
         <button
           type="button"
           onClick={() => setCreateTaskOpen(true)}
-          className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium"
+          className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 sm:ml-auto sm:w-auto"
         >
           새 업무 추가
         </button>
       </div>
 
       {loading ? (
-        <p className="text-slate-500 py-8 text-center">로딩 중...</p>
+        <p className="py-8 text-center text-slate-500">로딩 중...</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {KANBAN_STATUSES.map((status) => (
             <div
               key={status}
-              className="bg-slate-50 rounded-2xl border border-slate-200 p-4 min-h-[320px]"
+              className="min-h-[280px] rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:min-h-[320px]"
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div className="mb-3 flex items-center gap-2">
                 <span
-                  className={`w-2 h-2 rounded-full ${STATUS_COLORS[status] || "bg-slate-400"}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${STATUS_COLORS[status] || "bg-slate-400"}`}
                 />
                 <span className="font-medium text-slate-700">
                   {STATUS_LABELS[status]} ({byStatus(status).length})
@@ -124,12 +124,12 @@ export default function TeamKanban({
                     type="button"
                     onClick={() => setDetailTaskId(t.id)}
                     title={t.title}
-                    className="w-full text-left bg-white rounded-xl border border-slate-200 p-3 shadow-sm hover:shadow hover:border-slate-300 transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-all hover:border-slate-300 hover:shadow-md"
                   >
-                    <p className="font-medium text-slate-800 line-clamp-2 break-words" title={t.title}>{t.title}</p>
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                    <p className="line-clamp-2 break-words font-medium text-slate-800" title={t.title}>{t.title}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-slate-500">{t.assigneeName}</span>
-                      <span className={`px-1.5 py-0.5 rounded ${PRIORITY_CLASS[t.priority]}`}>
+                      <span className={`rounded px-1.5 py-0.5 ${PRIORITY_CLASS[t.priority]}`}>
                         {PRIORITY_LABEL[t.priority]}
                       </span>
                       {t.projectName && (
