@@ -8,6 +8,7 @@ import {
   Search,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   ImagePlus,
   Send,
   Video,
@@ -22,6 +23,7 @@ import {
   X,
   UserPlus,
 } from "lucide-react";
+import FeedChatView from "@/components/FeedChatView";
 
 type AttachmentItem = { type: "image" | "video"; url: string; fileName?: string };
 
@@ -86,6 +88,9 @@ export default function FeedPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
   const [myId, setMyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"topic" | "chat">("topic");
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
 
   const loadChannels = () => {
     fetch("/api/feed/channels", { credentials: "include" })
@@ -376,64 +381,125 @@ export default function FeedPage() {
     return list.filter((r) => r.name.toLowerCase().includes(q) || r.members.some((m) => m.name.toLowerCase().includes(q)));
   };
 
+  const selectChannel = (chId: string) => {
+    setSelectedChannelId(chId);
+    setSelectedRoomId(null);
+    setMobileChatOpen(true);
+  };
+  const selectRoom = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setSelectedChannelId(null);
+    setMobileChatOpen(true);
+  };
+
+  const allChannels = channelGroups.flatMap((g) => g.list);
+  const filteredChannelsForTab = filterChannels(allChannels);
+  const filteredRoomsForTab = filterRooms(rooms);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-slate-50">
-      {/* 좌측 사이드바 */}
-      <aside className="w-64 flex-shrink-0 border-r border-slate-200 bg-white flex flex-col">
-        <div className="p-2 border-b border-slate-100">
+      {/* 좌측 사이드바: md 이상에서만 3분할로 표시, 모바일에서는 리스트만 */}
+      <aside
+        className={`
+          flex flex-col border-r border-slate-200 bg-white
+          md:w-64 md:flex-shrink-0
+          ${mobileChatOpen ? "hidden md:flex" : "flex w-full md:w-64"}
+        `}
+      >
+        <div className="border-b border-slate-100 p-2 md:p-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="대화방 검색 Ctrl+J"
+              placeholder={activeTab === "topic" ? "토픽 검색" : "채팅 검색"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
 
+        {/* 모바일: 탭별 단일 리스트 (실시간 검색 반영) */}
         <div className="flex-1 overflow-y-auto py-2">
-          {/* 토픽 */}
-          <div className="px-2">
-            <div className="w-full flex items-center justify-between py-2 px-2">
+          <div className="block space-y-0.5 px-2 md:hidden">
+            {activeTab === "topic" &&
+              filteredChannelsForTab.map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => selectChannel(ch.id)}
+                  className={`w-full truncate rounded-lg px-3 py-2.5 text-left text-sm ${
+                    selectedChannelId === ch.id && !selectedRoomId
+                      ? "bg-blue-50 font-medium text-blue-700"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {ch.name}
+                </button>
+              ))}
+            {activeTab === "chat" &&
+              filteredRoomsForTab.map((room) => (
+                <button
+                  key={room.id}
+                  type="button"
+                  onClick={() => selectRoom(room.id)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm ${
+                    selectedRoomId === room.id
+                      ? "bg-blue-50 font-medium text-blue-700"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
+                    {room.members.length > 0 && room.members[0].avatarUrl ? (
+                      <img src={room.members[0].avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Users className="h-4 w-4 text-slate-500 m-2" />
+                    )}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate">
+                    {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId)
+                      ? room.members.find((m) => m.id !== myId)!.name
+                      : room.name}
+                  </span>
+                </button>
+              ))}
+          </div>
+
+          {/* 데스크톱: 토픽 섹션 */}
+          <div className="px-2 hidden md:block">
+            <div className="flex w-full items-center justify-between px-2 py-2">
               <button
                 type="button"
                 onClick={() => setTopicOpen((o) => ({ ...o, topic: !o.topic }))}
-                className="flex-1 flex items-center justify-between text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg py-1 -mx-1"
+                className="-mx-1 flex flex-1 items-center justify-between rounded-lg py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <span>토픽 {channelGroups.reduce((n, g) => n + g.list.length, 0)}</span>
-                {topicOpen.topic ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                {topicOpen.topic ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
               <button
                 type="button"
                 onClick={() => { setModalAddChannel(true); setModalError(""); setNewChannelName(""); setNewChannelGroup("메인"); }}
-                className="p-1 rounded hover:bg-slate-100 text-slate-500"
+                className="rounded p-1 text-slate-500 hover:bg-slate-100"
                 title="채널 추가"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="h-4 w-4" />
               </button>
             </div>
             {topicOpen.topic !== false && (
-              <div className="pl-2 space-y-0.5">
+              <div className="space-y-0.5 pl-2">
                 {channelGroups.map((group) => {
                   const list = filterChannels(group.list);
                   if (list.length === 0) return null;
                   return (
                     <div key={group.groupName} className="mb-2">
-                      <div className="text-xs font-medium text-slate-500 px-2 py-1">{group.groupName} {list.length}</div>
+                      <div className="px-2 py-1 text-xs font-medium text-slate-500">{group.groupName} {list.length}</div>
                       {list.map((ch) => (
                         <button
                           key={ch.id}
                           type="button"
-                          onClick={() => {
-                            setSelectedChannelId(ch.id);
-                            setSelectedRoomId(null);
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate ${
-                            selectedChannelId === ch.id && !selectedRoomId
-                              ? "bg-blue-50 text-blue-700 font-medium"
-                              : "text-slate-700 hover:bg-slate-50"
+                          onClick={() => { setSelectedChannelId(ch.id); setSelectedRoomId(null); }}
+                          className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm ${
+                            selectedChannelId === ch.id && !selectedRoomId ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-50"
                           }`}
                         >
                           {ch.name}
@@ -446,26 +512,16 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* 채팅 (그룹 + 1:1) */}
-          <div className="px-2 mt-2 border-t border-slate-100 pt-2">
+          {/* 데스크톱: 채팅 (그룹 + 1:1) */}
+          <div className="mt-2 border-t border-slate-100 px-2 pt-2 hidden md:block">
             <div className="flex items-center justify-between py-2">
               <span className="text-sm font-medium text-slate-700">채팅 {rooms.length}</span>
               <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => { setModalDM(true); setModalError(""); loadChatUsers(); }}
-                  title="1:1 채팅"
-                  className="p-1 rounded hover:bg-slate-100 text-slate-500"
-                >
-                  <UserPlus className="w-4 h-4" />
+                <button type="button" onClick={() => { setModalDM(true); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="1:1 채팅">
+                  <UserPlus className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }}
-                  title="새 그룹 채팅"
-                  className="p-1 rounded hover:bg-slate-100 text-slate-500"
-                >
-                  <Plus className="w-4 h-4" />
+                <button type="button" onClick={() => { setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="새 그룹 채팅">
+                  <Plus className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -474,25 +530,20 @@ export default function FeedPage() {
                 <button
                   key={room.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedRoomId(room.id);
-                    setSelectedChannelId(null);
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left ${
-                    selectedRoomId === room.id ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700 hover:bg-slate-50"
+                  onClick={() => { setSelectedRoomId(room.id); setSelectedChannelId(null); }}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                    selectedRoomId === room.id ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
                     {room.members.length > 0 && room.members[0].avatarUrl ? (
-                      <img src={room.members[0].avatarUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={room.members[0].avatarUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <Users className="w-4 h-4 text-slate-500" />
+                      <Users className="h-4 w-4 text-slate-500" />
                     )}
                   </div>
-                  <span className="truncate flex-1">
-                    {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId)
-                      ? room.members.find((m) => m.id !== myId)!.name
-                      : room.name}
+                  <span className="min-w-0 flex-1 truncate">
+                    {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId) ? room.members.find((m) => m.id !== myId)!.name : room.name}
                   </span>
                 </button>
               ))}
@@ -524,18 +575,38 @@ export default function FeedPage() {
             )}
           </div>
         </div>
+
+        {/* 모바일 전용 하단 탭 [토픽 / 채팅] */}
+        <nav className="flex shrink-0 border-t border-slate-200 bg-white md:hidden">
+          <button
+            type="button"
+            onClick={() => setActiveTab("topic")}
+            className={`flex-1 py-3 text-sm font-medium ${activeTab === "topic" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500"}`}
+          >
+            토픽
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("chat")}
+            className={`flex-1 py-3 text-sm font-medium ${activeTab === "chat" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500"}`}
+          >
+            채팅
+          </button>
+        </nav>
       </aside>
 
-      {/* 메인 영역 */}
-      <main className="flex-1 flex flex-col min-w-0 bg-white">
-        {/* 헤더 */}
-        <header className="flex-shrink-0 border-b border-slate-200">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-slate-800 truncate">{headerTitle}</h1>
+      {/* 메인 영역: 모바일에서 채팅 열림 시 전체 화면 */}
+      <main className={`flex flex-1 flex-col min-w-0 bg-white ${mobileChatOpen ? "fixed inset-0 z-30 md:relative md:z-0" : "hidden md:flex"}`}>
+        <header className="flex shrink-0 border-b border-slate-200 bg-white">
+          <div className="flex items-center justify-between px-3 py-2.5 md:px-4 md:py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <button type="button" onClick={() => setMobileChatOpen(false)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" aria-label="뒤로가기">
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <h1 className="min-w-0 truncate text-base font-semibold text-slate-800 md:text-lg">{headerTitle}</h1>
               {headerMemberCount != null && (
-                <span className="flex items-center gap-1 text-sm text-slate-500">
-                  <Users className="w-4 h-4" />
+                <span className="flex shrink-0 items-center gap-1 text-sm text-slate-500">
+                  <Users className="h-4 w-4" />
                   {headerMemberCount}
                 </span>
               )}
@@ -592,8 +663,8 @@ export default function FeedPage() {
           )}
         </header>
 
-        {/* 타임라인 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* 타임라인 (말풍선 + 날짜 구분선) */}
+        <div className="flex-1 overflow-y-auto p-3 md:p-4">
           {searchPanelOpen && searchInput.trim() && (selectedChannelId || selectedRoomId) && (
             <p className="text-sm text-slate-500">검색 결과: &quot;{searchInput}&quot;</p>
           )}
@@ -604,89 +675,9 @@ export default function FeedPage() {
           ) : error ? (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
           ) : items.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 text-sm">아직 게시글이 없습니다.</div>
+            <div className="py-12 text-center text-sm text-slate-500">아직 게시글이 없습니다.</div>
           ) : (
-            items.map((post) => (
-              <article key={post.id} className="group">
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-200 overflow-hidden">
-                    {post.userAvatarUrl ? (
-                      <img src={post.userAvatarUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm font-medium">
-                        {post.userName.slice(0, 1)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-medium text-slate-800 text-sm">{post.userName}</span>
-                      <span className="text-xs text-slate-500">
-                        {format(new Date(post.createdAt), "a h:mm", { locale: ko })}
-                      </span>
-                    </div>
-                    <p className="text-slate-700 text-sm whitespace-pre-wrap break-words">{post.content}</p>
-                    {post.attachments && post.attachments.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {post.attachments.map((att, i) =>
-                          att.type === "image" ? (
-                            <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <img
-                                src={att.url}
-                                alt={att.fileName || "첨부"}
-                                className="max-w-full max-h-64 object-contain rounded-lg border border-slate-200"
-                              />
-                            </a>
-                          ) : (
-                            <div key={i} className="rounded-lg border border-slate-200 overflow-hidden bg-slate-100">
-                              <video
-                                src={att.url}
-                                controls
-                                className="max-w-full max-h-64"
-                                preload="metadata"
-                              />
-                              {att.fileName && (
-                                <p className="text-xs text-slate-500 px-2 py-1 truncate">{att.fileName}</p>
-                              )}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      {post.readCount > 0 && (
-                        <span className="text-xs text-slate-500">읽음 {post.readCount}</span>
-                      )}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {REACTION_EMOJIS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => toggleReaction(post.id, emoji)}
-                            className="p-1 rounded hover:bg-slate-100 text-sm"
-                            title={emoji}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                      {Object.entries(post.reactions || {}).map(([emoji, count]) =>
-                        count > 0 ? (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => toggleReaction(post.id, emoji)}
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-xs"
-                          >
-                            {emoji} {count}
-                          </button>
-                        ) : null
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))
+            <FeedChatView items={items} myId={myId} onReaction={toggleReaction} />
           )}
           {nextCursor && (selectedChannelId || selectedRoomId) && (
             <div className="text-center py-4">
@@ -701,27 +692,53 @@ export default function FeedPage() {
           )}
         </div>
 
-        {/* 메시지 입력 */}
+        {/* 메시지 입력 (잔디 스타일: 하단 고정, 흰 배경, + / 입력 / 보내기) */}
         {(selectedChannelId || selectedRoomId) && (
-          <div className="flex-shrink-0 border-t border-slate-200 p-4 bg-slate-50">
-            <form onSubmit={handleSubmit}>
-              <div className="relative">
+          <div className="flex shrink-0 flex-col border-t border-slate-200 bg-white p-2 md:p-3">
+            {files.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {files.map((f, i) => (
+                  <div key={i} className="relative">
+                    {f.type.startsWith("image/") ? (
+                      <img src={URL.createObjectURL(f)} alt="" className="h-16 w-16 rounded border border-slate-200 object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded border border-slate-200 bg-slate-100">
+                        <Video className="h-6 w-6 text-slate-500" />
+                      </div>
+                    )}
+                    <button type="button" onClick={() => removeFile(i)} className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600">×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple onChange={handleFileChange} className="hidden" />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex shrink-0 items-center justify-center rounded-lg p-2.5 text-slate-500 hover:bg-slate-100" title="파일 첨부">
+                <Plus className="h-5 w-5" />
+              </button>
+              <div className="relative min-w-0 flex-1">
                 <textarea
                   ref={contentRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onBlur={() => items.forEach((p) => markRead(p.id))}
-                  placeholder="메시지를 입력하세요....."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (e.shiftKey) return; // Shift+Enter → 줄바꿈(기본 동작 유지)
+                    e.preventDefault();
+                    (e.target as HTMLTextAreaElement).form?.requestSubmit();
+                  }}
+                  placeholder="메시지를 입력하세요..."
+                  rows={1}
+                  className="max-h-32 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 {mentionOpen && (
                   <>
                     <div className="absolute inset-0 z-10" onClick={() => setMentionOpen(false)} />
-                    <div className="absolute bottom-full left-0 mb-1 py-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto min-w-[180px]">
+                    <div className="absolute bottom-full left-0 z-20 mb-1 max-h-40 min-w-[180px] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                       {mentionList.map((u) => (
-                        <button key={u.id} type="button" onClick={() => insertMention(u.name)} className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
-                          {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs">{u.name.slice(0, 1)}</div>}
+                        <button key={u.id} type="button" onClick={() => insertMention(u.name)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+                          {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" /> : <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-xs">{u.name.slice(0, 1)}</div>}
                           {u.name}
                         </button>
                       ))}
@@ -730,90 +747,51 @@ export default function FeedPage() {
                   </>
                 )}
               </div>
-              {files.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {files.map((f, i) => (
-                    <div key={i} className="relative inline-block">
-                      {f.type.startsWith("image/") ? (
-                        <img
-                          src={URL.createObjectURL(f)}
-                          alt=""
-                          className="w-16 h-16 object-cover rounded border border-slate-200"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded border border-slate-200 bg-slate-100 flex items-center justify-center">
-                          <Video className="w-6 h-6 text-slate-500" />
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeFile(i)}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-600"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
-                <div className="flex items-center gap-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,video/*"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={openMention}
-                    className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
-                    title="멘션 (@이름)"
-                  >
-                    <AtSign className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
-                    title="굵게: **텍스트** 입력"
-                  >
-                    <Bold className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
-                    title="파일 첨부"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"
-                    title="이미지/영상"
-                  >
-                    <ImagePlus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Shift + Enter 로 줄바꿈</span>
-                  <button
-                    type="submit"
-                    disabled={(!content.trim() && files.length === 0) || posting}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none text-white text-sm font-medium transition-colors"
-                  >
-                    <Send className="w-4 h-4" />
-                    게시
-                  </button>
-                </div>
-              </div>
+              <button
+                type="submit"
+                disabled={(!content.trim() && files.length === 0) || posting}
+                className="flex shrink-0 items-center justify-center rounded-full bg-blue-600 p-2.5 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none"
+                title="보내기"
+              >
+                <Send className="h-5 w-5" />
+              </button>
             </form>
+            <div className="mt-1 flex items-center gap-2 px-1">
+              <button type="button" onClick={openMention} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="멘션">@</button>
+              <span className="text-[10px] text-slate-400 md:text-xs">Shift+Enter 줄바꿈</span>
+            </div>
           </div>
         )}
       </main>
+
+      {/* 플로팅 액션 버튼 (우측 하단): 토픽 탭이면 새 토픽, 채팅 탭이면 1:1/그룹 선택 */}
+      <div className={`fixed bottom-20 right-4 z-20 md:bottom-6 md:right-6 ${mobileChatOpen ? "hidden md:block" : "block"}`}>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => (activeTab === "topic" ? (setModalAddChannel(true), setModalError(""), setNewChannelName(""), setNewChannelGroup("메인")) : setFabMenuOpen((o) => !o))}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 md:h-14 md:w-14"
+            aria-label="추가"
+          >
+            <Plus className="h-6 w-6 md:h-7 md:w-7" />
+          </button>
+          {activeTab === "chat" && fabMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-0" onClick={() => setFabMenuOpen(false)} />
+              <div className="absolute bottom-full right-0 z-10 mb-2 w-40 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button type="button" onClick={() => { setFabMenuOpen(false); setModalDM(true); setModalError(""); loadChatUsers(); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
+                  <UserPlus className="h-4 w-4" />
+                  1:1 채팅
+                </button>
+                <button type="button" onClick={() => { setFabMenuOpen(false); setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
+                  <Users className="h-4 w-4" />
+                  그룹 채팅
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* 모달: 채널 추가 */}
       {modalAddChannel && (
