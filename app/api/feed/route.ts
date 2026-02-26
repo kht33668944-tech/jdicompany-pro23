@@ -4,6 +4,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
+import { createNotification } from "@/lib/notify";
 import { success, created, errors } from "@/lib/api-response";
 
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -198,6 +199,25 @@ export async function POST(req: NextRequest) {
         user: { select: { id: true, name: true, avatarUrl: true } },
       },
     });
+
+    if (roomId) {
+      const members = await prisma.feedRoomMember.findMany({
+        where: { roomId },
+        select: { userId: true },
+      });
+      const senderName = post.user.name;
+      const link = `/feed?roomId=${roomId}`;
+      const title = `${senderName}님이 메시지를 보냈습니다`;
+      for (const m of members) {
+        if (m.userId === session.sub) continue;
+        await createNotification(prisma, {
+          userId: m.userId,
+          type: "feed_message",
+          title,
+          link,
+        });
+      }
+    }
 
     return created({
       id: post.id,

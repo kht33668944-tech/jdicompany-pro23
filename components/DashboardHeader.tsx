@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import { registerPushSubscription } from "@/lib/push-client";
 
 type NotificationItem = {
   id: string;
@@ -15,10 +16,21 @@ type NotificationItem = {
   createdAt: string;
 };
 
+type NotificationPermission = "default" | "granted" | "denied";
+
 export default function DashboardHeader({ userName }: { userName: string }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setPermission(Notification.permission as NotificationPermission);
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/notifications?limit=20", { credentials: "include" })
@@ -55,6 +67,26 @@ export default function DashboardHeader({ userName }: { userName: string }) {
       .catch(() => {});
   };
 
+  const handleEnablePush = async () => {
+    if (!("Notification" in window)) return;
+    setPushError(null);
+    setRegistering(true);
+    try {
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      if (perm !== "granted") {
+        if (perm === "denied") {
+          setPushError("브라우저에서 알림이 차단되었습니다. 설정에서 허용해 주세요.");
+        }
+        return;
+      }
+      const result = await registerPushSubscription();
+      if (!result.ok) setPushError(result.error ?? "등록에 실패했습니다.");
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-5">
       <div className="max-w-6xl mx-auto flex items-start justify-between gap-4">
@@ -85,6 +117,34 @@ export default function DashboardHeader({ userName }: { userName: string }) {
               <div className="px-4 py-2 border-b border-slate-100">
                 <span className="text-sm font-medium text-slate-700">알림</span>
               </div>
+              {permission !== "granted" && typeof window !== "undefined" && "Notification" in window && (
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                  <p className="text-xs text-slate-600 mb-2">
+                    푸시 알림을 켜면 이 기기로 채팅·업무 알림을 받을 수 있습니다.
+                  </p>
+                  {permission === "denied" && (
+                    <p className="text-xs text-amber-700 mb-2">
+                      브라우저 설정 → 사이트 설정 → 알림에서 이 사이트를 허용해 주세요.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleEnablePush}
+                    disabled={registering}
+                    className="w-full py-2 px-3 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 touch-manipulation"
+                  >
+                    {registering ? "등록 중…" : "알림 켜기"}
+                  </button>
+                  {pushError && (
+                    <p className="text-xs text-red-600 mt-2">{pushError}</p>
+                  )}
+                </div>
+              )}
+              {permission === "granted" && (
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <p className="text-xs text-slate-500">푸시 알림이 켜져 있습니다.</p>
+                </div>
+              )}
               {notifications.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-slate-500">알림이 없습니다.</p>
               ) : (
