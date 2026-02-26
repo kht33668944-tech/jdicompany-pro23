@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
         targetType: targetType === "team" ? "team" : "all",
         targetTeamId: targetType === "team" ? targetTeamId || null : null,
         eventDate: eventDate ? new Date(eventDate) : null,
-        attachments: attachments.length ? (attachments as unknown as object) : null,
+        ...(attachments.length
+          ? { attachments: (attachments as unknown as object) }
+          : {}),
         createdBy: session.sub,
       },
     });
