@@ -36,9 +36,10 @@ export default function PushRegistration() {
         }
         if (permission !== "granted" || cancelled) return;
 
+        const keyBytes = urlBase64ToUint8Array(publicKey);
         const subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
+          applicationServerKey: keyBytes.buffer as ArrayBuffer,
         });
 
         const sub = subscription.toJSON();
