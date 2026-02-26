@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/auth";
 import { success, created, errors } from "@/lib/api-response";
 
+const MY_CHAT_ROOM_NAME = "나와의 대화";
+
 export async function GET() {
   try {
     const session = await requireSession();
 
-    const memberships = await prisma.feedRoomMember.findMany({
+    let memberships = await prisma.feedRoomMember.findMany({
       where: { userId: session.sub },
       include: {
         room: {
@@ -21,6 +23,33 @@ export async function GET() {
       orderBy: { joinedAt: "desc" },
     });
 
+    const hasMySoloRoom = memberships.some(
+      (m) => m.room.members.length === 1 && m.room.members[0].userId === session.sub
+    );
+    if (!hasMySoloRoom) {
+      await prisma.feedRoom.create({
+        data: {
+          name: MY_CHAT_ROOM_NAME,
+          members: {
+            create: [{ userId: session.sub }],
+          },
+        },
+      });
+      memberships = await prisma.feedRoomMember.findMany({
+        where: { userId: session.sub },
+        include: {
+          room: {
+            include: {
+              members: {
+                include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+              },
+            },
+          },
+        },
+        orderBy: { joinedAt: "desc" },
+      });
+    }
+
     const rooms = memberships.map((m) => ({
       id: m.room.id,
       name: m.room.name,
@@ -33,7 +62,15 @@ export async function GET() {
       joinedAt: m.joinedAt,
     }));
 
-    return success({ rooms });
+    const sortedRooms = [...rooms].sort((a, b) => {
+      const aIsSolo = a.memberCount === 1;
+      const bIsSolo = b.memberCount === 1;
+      if (aIsSolo && !bIsSolo) return -1;
+      if (!aIsSolo && bIsSolo) return 1;
+      return 0;
+    });
+
+    return success({ rooms: sortedRooms });
   } catch (e) {
     const err = e as Error;
     if (err.message === "UNAUTHORIZED") return errors.unauthorized();

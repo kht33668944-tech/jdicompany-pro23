@@ -420,7 +420,7 @@ export default function FeedPage() {
         </div>
 
         {/* 모바일: 탭별 단일 리스트 (실시간 검색 반영) */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 overflow-y-auto py-2 min-h-0">
           <div className="block space-y-0.5 px-2 md:hidden">
             {activeTab === "topic" &&
               filteredChannelsForTab.map((ch) => (
@@ -465,7 +465,7 @@ export default function FeedPage() {
               ))}
           </div>
 
-          {/* 데스크톱: 토픽 섹션 */}
+          {/* 데스크톱: 토픽 섹션 (스크롤 영역) */}
           <div className="px-2 hidden md:block">
             <div className="flex w-full items-center justify-between px-2 py-2">
               <button
@@ -512,46 +512,8 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* 데스크톱: 채팅 (그룹 + 1:1) */}
-          <div className="mt-2 border-t border-slate-100 px-2 pt-2 hidden md:block">
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm font-medium text-slate-700">채팅 {rooms.length}</span>
-              <div className="flex items-center gap-0.5">
-                <button type="button" onClick={() => { setModalDM(true); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="1:1 채팅">
-                  <UserPlus className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={() => { setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="새 그룹 채팅">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="space-y-0.5">
-              {filterRooms(rooms).map((room) => (
-                <button
-                  key={room.id}
-                  type="button"
-                  onClick={() => { setSelectedRoomId(room.id); setSelectedChannelId(null); }}
-                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-                    selectedRoomId === room.id ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
-                    {room.members.length > 0 && room.members[0].avatarUrl ? (
-                      <img src={room.members[0].avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Users className="h-4 w-4 text-slate-500" />
-                    )}
-                  </div>
-                  <span className="min-w-0 flex-1 truncate">
-                    {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId) ? room.members.find((m) => m.id !== myId)!.name : room.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 앱 */}
-          <div className="px-2 mt-2 border-t border-slate-100 pt-2">
+          {/* 데스크톱: 앱 (스크롤 영역) */}
+          <div className="px-2 mt-2 border-t border-slate-100 pt-2 hidden md:block">
             <button
               type="button"
               onClick={() => setAppSectionOpen((o) => !o)}
@@ -573,6 +535,44 @@ export default function FeedPage() {
                 <p className="text-xs text-slate-400">추가 예정</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 데스크톱: 채팅 (하단 고정, 스크롤 없이 항상 보임) */}
+        <div className="shrink-0 border-t border-slate-200 bg-white px-2 py-2 hidden md:block">
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm font-medium text-slate-700">채팅 {rooms.length}</span>
+            <div className="flex items-center gap-0.5">
+              <button type="button" onClick={() => { setModalDM(true); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="1:1 채팅">
+                <UserPlus className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => { setModalGroupRoom(true); setNewRoomName(""); setSelectedUserIds([]); setModalError(""); loadChatUsers(); }} className="rounded p-1 text-slate-500 hover:bg-slate-100" title="새 그룹 채팅">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="space-y-0.5 max-h-48 overflow-y-auto">
+            {filterRooms(rooms).map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                onClick={() => { setSelectedRoomId(room.id); setSelectedChannelId(null); }}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                  selectedRoomId === room.id ? "bg-blue-50 font-medium text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-slate-200">
+                  {room.members.length > 0 && room.members[0].avatarUrl ? (
+                    <img src={room.members[0].avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Users className="h-4 w-4 text-slate-500" />
+                  )}
+                </div>
+                <span className="min-w-0 flex-1 truncate">
+                  {room.memberCount === 2 && myId && room.members.find((m) => m.id !== myId) ? room.members.find((m) => m.id !== myId)!.name : room.name}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
